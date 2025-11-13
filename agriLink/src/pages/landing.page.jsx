@@ -15,11 +15,12 @@ import { useNavigate } from "react-router-dom";
 export const Landing = () => {
   const navigate = useNavigate();
 
-  /**
- * @param {"login" | "signUp"} mode
- */
-  const navTo = (mode) => {
-    navigate("/auth", {state:{mode}});
+  const navToLogin = () => {
+    navigate("/login");
+  };
+
+  const navToSignUp = () => {
+    navigate("/signup");
   };
   return (
     <div className="px-9 pt-6">
@@ -45,13 +46,13 @@ export const Landing = () => {
         <div className="flex space-x-2">
           <RoundedBtn
             name={"Login"}
-            fn={() => navTo("login")}
+            fn={navToLogin}
             colors={false}
             altColor={`bg-accent text-background hover:bg-transparent border`}
           />
           <RoundedBtn
             name={"Sign Up"}
-            fn={() =>  navTo("signUp")}
+            fn={navToSignUp}
             colors={false}
             altColor={`hover:bg-secondary text-background bg-transparent border`}
           />
