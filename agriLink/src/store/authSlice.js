@@ -33,10 +33,7 @@ export const loginUser = createAsyncThunk(
 //---signup user---
 export const signUpUser = createAsyncThunk(
   "auth/signUpUser",
-  async (
-    { email, password, username },
-    thunkAPI
-  ) => {
+  async ({ email, password, username }, thunkAPI) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -44,23 +41,32 @@ export const signUpUser = createAsyncThunk(
         data: { username },
       },
     });
-    if (error) {
-      throw error;
-    }
-    const userId = data.user?.id;
-    const { error: profileError } = await supabase.from("profiles").insert([
-      {
-        id: userId,
-        email,
-        username,
-      },
-    ]);
 
-    if (profileError) console.error("Profile creation error:", profileError);
+    if (error) throw error;
 
-    return data;
+    const authUser = data.user;
+    const userId = authUser.id;
+
+    // Insert profile
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .insert([{ id: userId, email, username }])
+      .select()
+      .single();
+
+    if (profileError) throw profileError;
+
+    return {
+      id: authUser.id,
+      email: authUser.email,
+      username: profile.username,
+      avatar_url: profile.avatar_url,
+      profile,
+      session: data.session || null,
+    };
   }
 );
+
 //---logout---
 export const signOutUser = createAsyncThunk("auth/logoutUser", async () => {
   await supabase.auth.signOut();
@@ -74,33 +80,31 @@ export const checkSession = createAsyncThunk("auth/checkSession", async () => {
 
 //  ---user account updaters----
 // Update user account details
-export const updateAccount = createAsyncThunk(
-  "auth/updateAccount",
-  async ({ id, username, email }, thunkAPI) => {
-    const { error } = await supabase
+export const updateUserProfile = createAsyncThunk(
+  "auth/updateUserProfile",
+  async ({ id, updates }, thunkAPI) => {
+    const { data, error } = await supabase
       .from("profiles")
-      .update({ username, email })
+      .update(updates)
       .eq("id", id)
-      .select("*");
+      .select()
+      .single();
 
     if (error) throw error;
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", id)
-      .single();
     return data;
   }
 );
+
 //---fetch user account on sign in---
 export const fetchUserProfile = createAsyncThunk(
   "auth/fetchUserProfile",
   async (id, thunkAPI) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, email, avatar_url")
+      .select("id, username, email, avatar_url, phone, role, bio, location")
       .eq("id", id)
       .single();
+
     if (error) throw error;
     return data;
   }
@@ -112,29 +116,29 @@ export const uploadAvatar = createAsyncThunk(
   async ({ userId, file }, thunkAPI) => {
     try {
       // Upload file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
+        .from("avatars")
         .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
+          cacheControl: "3600",
+          upsert: true,
         });
 
       if (uploadError) throw uploadError;
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       // Update profile with avatar URL
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ avatar_url: publicUrl })
-        .eq('id', userId);
+        .eq("id", userId);
 
       if (updateError) throw updateError;
 
@@ -196,10 +200,6 @@ export const authSlice = createSlice({
           id: action.payload.id,
           email: action.payload.email,
           username: action.payload.profile.username,
-          fullname: action.payload.profile.fullname,
-          contact: action.payload.profile.contact,
-          billing: action.payload.profile.billing,
-          shipping: action.payload.profile.shipping,
           avatar_url: action.payload.profile.avatar_url,
         };
         state.isAuthenticated = true;
@@ -212,14 +212,15 @@ export const authSlice = createSlice({
       })
       //signup
       .addCase(signUpUser.fulfilled, (state, action) => {
-        state.user = action.payload;
+        state.user = {
+          id: action.payload.id,
+          email: action.payload.email,
+          username: action.payload.username,
+          avatar_url: action.payload.avatar_url,
+        };
         state.isAuthenticated = true;
         state.token = action.payload.session?.access_token || null;
         state.error = null;
-      })
-      .addCase(signUpUser.rejected, (state, action) => {
-        state.isAuthenticated = false;
-        state.error = action.error.message;
       })
       //logout
       .addCase(signOutUser.fulfilled, (state) => {
@@ -238,9 +239,10 @@ export const authSlice = createSlice({
         state.user = action.payload;
       })
       // ---user account updaters---
-      .addCase(updateAccount.fulfilled, (state, action) => {
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
         state.user = { ...state.user, ...action.payload };
       })
+
       .addCase(uploadAvatar.fulfilled, (state, action) => {
         state.user = { ...state.user, avatar_url: action.payload.avatar_url };
       })
@@ -259,10 +261,6 @@ export const authSlice = createSlice({
             id: user.id,
             email: user.email,
             username: profile.username,
-            fullname: profile.fullname,
-            contact: profile.contact,
-            billing: profile.billing,
-            shipping: profile.shipping,
             avatar_url: profile.avatar_url,
           };
           state.isAuthenticated = true;

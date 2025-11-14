@@ -37,7 +37,7 @@ export const SignUp = () => {
       })
     )
       .unwrap()
-      .then(() => navigate("/"))
+      .then(() => navigate("/dashboard"))
       .catch(() => {});
     if (form.password !== form.confirmPassword) {
       alert("Passwords do not match");

@@ -30,7 +30,7 @@ export const Login = () => {
 
     dispatch(loginUser({ email: form.email, password: form.password }))
       .unwrap()
-      .then(() => navigate("/"))
+      .then(() => navigate("/dashboard"))
       .catch(() => {});
   };
   //navigate to landing page

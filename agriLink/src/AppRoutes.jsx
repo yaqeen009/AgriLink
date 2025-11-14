@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Landing } from './pages/landing.page';
 import { Login } from './pages/login.page';
 import { SignUp } from './pages/signUp.page';
+import { Dashboard } from './pages/dashboard.page';
 
 export default function AppRoutes() {
   return (
@@ -11,6 +12,7 @@ export default function AppRoutes() {
             <Route path='/' element={<Landing/>}/>
             <Route path='/login' element={<Login/>}/>
             <Route path='/signup' element={<SignUp/>}/>
+            <Route path='/dashboard' elemen={<Dashboard/>}/>
         </Routes>
     </div>
   )
